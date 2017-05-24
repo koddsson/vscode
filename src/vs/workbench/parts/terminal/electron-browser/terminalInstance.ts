@@ -31,6 +31,7 @@ import { TerminalLinkHandler } from 'vs/workbench/parts/terminal/electron-browse
 import { TerminalWidgetManager } from 'vs/workbench/parts/terminal/browser/terminalWidgetManager';
 import { registerThemingParticipant, ITheme, ICssStyleCollector } from "vs/platform/theme/common/themeService";
 import { scrollbarSliderBackground, scrollbarSliderHoverBackground, scrollbarSliderActiveBackground } from "vs/platform/theme/common/colorRegistry";
+import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 
 /** The amount of time to consider terminal errors to be related to the launch */
 const LAUNCHING_DURATION = 500;
@@ -97,7 +98,8 @@ export class TerminalInstance implements ITerminalInstance {
 		@IPanelService private _panelService: IPanelService,
 		@IWorkspaceContextService private _contextService: IWorkspaceContextService,
 		@IWorkbenchEditorService private _editorService: IWorkbenchEditorService,
-		@IInstantiationService private _instantiationService: IInstantiationService
+		@IInstantiationService private _instantiationService: IInstantiationService,
+		@IStorageService private _storageService: IStorageService
 	) {
 		this._instanceDisposables = [];
 		this._processDisposables = [];
@@ -467,7 +469,15 @@ export class TerminalInstance implements ITerminalInstance {
 		}
 		const env = TerminalInstance.createTerminalEnv(process.env, shell, this._getCwd(shell, workspace), locale, this._cols, this._rows);
 		this._title = shell.name || '';
-		this._process = cp.fork('./terminalProcess', [], {
+		let crashReporterArgs: Electron.CrashReporterStartOptions;
+		try {
+			crashReporterArgs = JSON.parse(this._storageService.get('crashReporterArgs', StorageScope.GLOBAL));
+			crashReporterArgs.extra.processName = 'terminalProcess';
+		} catch (error) {
+			// Error while parsing crash reporter args from local storage
+		}
+		let processArgs = crashReporterArgs ? [crashReporterArgs.toString()] : [];
+		this._process = cp.fork('./terminalProcess', processArgs, {
 			env: env,
 			cwd: URI.parse(path.dirname(require.toUrl('./terminalProcess'))).fsPath
 		});

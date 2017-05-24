@@ -145,3 +145,10 @@ function sendProcessTitle() {
 	});
 	currentTitle = ptyProcess.process;
 }
+
+try {
+	var crashReporterArgs = JSON.parse(process.argv[2]);
+	process.crashReporter.start(crashReporterArgs);
+} catch (error) {
+	// Error while fetching crash reporter args
+}

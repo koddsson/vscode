@@ -15,6 +15,8 @@ import { Registry } from 'vs/platform/platform';
 import { crashReporter } from 'electron';
 import product from 'vs/platform/node/product';
 import pkg from 'vs/platform/node/package';
+import * as os from 'os';
+import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 
 const TELEMETRY_SECTION_ID = 'telemetry';
 
@@ -43,7 +45,8 @@ export class CrashReporter {
 		configuration: Electron.CrashReporterStartOptions,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IWindowsService windowsService: IWindowsService,
-		@IConfigurationService configurationService: IConfigurationService
+		@IConfigurationService configurationService: IConfigurationService,
+		@IStorageService storageService: IStorageService
 	) {
 		const config = configurationService.getConfiguration<ICrashReporterConfig>(TELEMETRY_SECTION_ID);
 
@@ -52,14 +55,17 @@ export class CrashReporter {
 		}
 
 		telemetryService.getTelemetryInfo()
-			.then(info => ({
-				vscode_sessionId: info.sessionId,
-				vscode_version: pkg.version,
-				vscode_commit: product.commit,
-				vscode_machineId: info.machineId
-			}))
-			.then(extra => assign(configuration, { extra }))
-			.then(configuration => {
+			.then(info => {
+				let extra = {
+					vscode_sessionId: info.sessionId,
+					vscode_version: pkg.version,
+					vscode_commit: product.commit,
+					vscode_machineId: info.machineId,
+					crashesDirectory: os.tmpdir()
+				};
+				assign(configuration, { extra });
+				storageService.store('crashReporterArgs', configuration, StorageScope.GLOBAL);
+
 				// start crash reporter right here
 				crashReporter.start(clone(configuration));
 
